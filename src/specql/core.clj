@@ -86,6 +86,11 @@
   [db table-kw record]
   (insert/insert! db table-kw record))
 
+(defn multi-insert!
+  "Insert multiple records to the given table at a time."
+  [db table-kw record]
+  (insert/multi-insert! db table-kw record))
+
 (defn upsert!
   "Atomically UPDATE or INSERT a record"
   [db table & keyset-record-where]
