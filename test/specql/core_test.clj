@@ -1,7 +1,8 @@
 (ns specql.core-test
   (:require [specql.test-util :refer [asserted]]
-            [specql.core :refer [define-tables fetch insert! delete! update! upsert!
-                        columns tables refresh!] :as specql]
+            [specql.core :refer [define-tables fetch insert!
+                                 multi-insert! delete! update! upsert!
+                                 columns tables refresh!] :as specql]
             [specql.op :as op]
             [specql.rel :as rel]
             [specql.transform :as xf]
@@ -250,6 +251,50 @@
 
   (testing "count after insertions"
     (is (= 9 (count (fetch db :employee/employees
+                           #{:employee/id}
+                           {}))))))
+
+(deftest multi-insert
+  (testing "count before newly inserted rows"
+    (is (= 3 (count (fetch db :employee/employees
+                           #{:employee/id}
+                           {})))))
+
+  (testing "inserting two new employees"
+    (multi-insert! db :employee/employees
+                   [{:employee/name "Foo"
+                     :employee/employment-started (java.util.Date.)}
+                    {:employee/name "Bar"
+                     :employee/employment-started (java.util.Date.)}])
+
+    (is (= 5 (count (fetch db :employee/employees
+                           #{:employee/id}
+                           {})))))
+
+  (testing "Interesting characters in data"
+    (multi-insert! db :employee/employees
+                   [{:employee/name "Comma"
+                     :employee/employment-started (java.util.Date.)
+                     :employee/address #:address {:street "Commaroad,"
+                                                  :postal-code "12345"
+                                                  :country "CO"}}
+                    {:employee/name "Braces"
+                     :employee/employment-started (java.util.Date.)
+                     :employee/address #:address {:street "Bra{e street"
+                                                  :postal-code "1(2)345"
+                                                  :country "')"}}
+                    {:employee/name "Braces"
+                     :employee/employment-started (java.util.Date.)
+                     :employee/address #:address {:street "{"}}])
+
+    (is (= {:employee/address #:address{:street "Commaroad,"
+                                        :postal-code "12345"
+                                        :country "CO"}}
+           (first (fetch db :employee/employees
+                         #{:employee/address}
+                         {:employee/id 6}))))
+
+    (is (= 8 (count (fetch db :employee/employees
                            #{:employee/id}
                            {}))))))
 

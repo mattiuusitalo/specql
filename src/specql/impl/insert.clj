@@ -49,6 +49,27 @@
                   record
                   cols))))))
 
+(defn multi-insert! [db table-kw records]
+  (assert-table table-kw)
+  (let [table-info-registry @registry/table-info-registry
+        {table-name :name
+         insert-spec :insert-spec-kw :as table}
+        (table-info-registry table-kw)]
+    (doseq [record records]
+      (assert-spec insert-spec record))
+    (let [db-parameters
+          (map (partial columns-and-values-to-set table-info-registry table-kw) records)
+          column-names (ffirst db-parameters)
+          alias-fn (gen-alias)
+          alias (alias-fn :ins)
+          value-names (second (first db-parameters))
+          rows (mapv #(nth % 2) db-parameters)
+          sql (str "INSERT INTO \"" table-name "\" AS " alias " ("
+                   (str/join ", " (map #(str "\"" % "\"") column-names)) ") "
+                   "VALUES (" (str/join "," value-names) ")")
+          sql-and-params (into [sql] rows)]
+      (jdbc/db-do-prepared db true sql-and-params {:multi? true}))))
+
 (s/def ::keyset-record-where
   (s/cat :keyset (s/? (s/and (s/coll-of keyword?)
                              set?))
